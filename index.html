@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Transporte — Huella de Carbono CO₂</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a3560;--blue1:#1e5fad;--blue2:#2980c8;--blue3:#5aade0;--blue4:#c7dff5;
+  --white:#fff;--bg:#eef2f7;--border:#ccd6e4;--text:#1c2a3a;--muted:#6b7a8f;
+}
+body{background:var(--bg);font-family:'Lato',sans-serif;font-size:13px;color:var(--text);padding:14px;min-width:1200px}
+.db{background:var(--white);border:1px solid var(--border);border-radius:5px;overflow:hidden;box-shadow:0 3px 18px rgba(0,0,0,.09)}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--navy);display:grid;grid-template-columns:230px 1fr 1fr 1fr 210px;border-bottom:3px solid var(--blue2)}
+.tb-title{padding:13px 16px;border-right:1px solid rgba(255,255,255,.12)}
+.tb-title h1{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:#fff;line-height:1.3}
+.tb-title h1 span{color:var(--blue3)}
+.tb-title p{font-size:10px;color:rgba(255,255,255,.45);margin-top:3px;font-weight:300}
+.kpi-block{text-align:center;padding:11px 8px;border-right:1px solid rgba(255,255,255,.12)}
+.kbl{font-size:9.5px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:3px}
+.kbv{font-family:'Playfair Display',serif;font-size:30px;font-weight:700;color:#fff;line-height:1;letter-spacing:-1px}
+.kbu{font-size:9px;color:rgba(255,255,255,.38);display:block;margin-top:2px;font-weight:300}
+.filter-block{padding:11px 14px;display:flex;flex-direction:column;justify-content:center;gap:5px}
+.filter-block label{font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.7px;font-weight:700}
+.filter-block select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:4px;padding:5px 8px;font-size:12px;font-family:'Lato',sans-serif;width:100%;cursor:pointer;outline:none}
+.filter-block select option{background:var(--navy);color:#fff}
+
+/* ── BODY ── */
+.body{display:grid;grid-template-columns:1fr 1fr 220px;grid-template-rows:auto auto}
+.panel{padding:14px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.panel.no-right{border-right:none}
+.panel.no-bottom{border-bottom:none}
+.panel.row-span2{grid-row:span 2;border-bottom:none;overflow:hidden}
+.ptitle{font-family:'Playfair Display',serif;font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px}
+.psub{font-size:10px;color:var(--muted);margin-bottom:10px}
+
+/* ── DONUT ── */
+.donut-wrap{display:flex;align-items:center;gap:14px;justify-content:center;padding-top:4px}
+.donut-legend{display:flex;flex-direction:column;gap:8px}
+.dl-row{display:flex;align-items:center;gap:7px;font-size:11px}
+.dl-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.dl-name{color:var(--muted);min-width:62px;font-weight:400}
+.dl-val{font-weight:700;color:var(--text);font-size:12px}
+.dl-pct{color:var(--muted);font-size:10px;margin-left:3px;font-weight:400}
+.cw{position:relative;width:100%}
+
+/* ── TABLA FIJOS ── */
+.ft{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed}
+.ft thead tr{background:var(--navy)}
+.ft thead th{padding:5px 4px;color:#fff;font-weight:700;font-size:9px;letter-spacing:.2px;text-align:right;white-space:nowrap;font-family:'Lato',sans-serif;overflow:hidden}
+.ft thead th:first-child{text-align:left;width:44%}
+.ft thead th:not(:first-child){width:14%}
+.ft tbody tr:nth-child(even){background:#f2f6fb}
+.ft tbody tr:hover{background:#e4edf8}
+.ft tbody td{padding:4px 4px;border-bottom:1px solid rgba(0,0,0,.04);text-align:right;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ft tbody td:first-child{text-align:left;color:var(--text)}
+.ft tfoot td{padding:5px 4px;background:var(--navy);color:#fff;font-weight:700;font-size:10px;text-align:right}
+.ft tfoot td:first-child{text-align:left}
+
+/* animación suave al actualizar tabla */
+#tb-fijos tr{transition:opacity .15s}
+
+/* ── LEYENDA ── */
+.leg{display:flex;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.li-dot{width:9px;height:9px;border-radius:50%}
+.li-sq{width:12px;height:5px;border-radius:1px}
+
+/* ── FOOTER ── */
+.foot{background:#f5f8fc;border-top:1px solid var(--border);padding:7px 18px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)}
+.foot .valid{color:#1a7a45;font-weight:700}
+</style>
+</head>
+<body>
+<div class="db">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-title">
+    <h1>Transporte — Huella de<br>Carbono <span>CO₂</span></h1>
+    <p>Liftit Cargo · Org. 3641 · 2025–2026</p>
+  </div>
+  <div class="kpi-block">
+    <div class="kbl">CO₂ Emitido Total (Ton)</div>
+    <div class="kbv" id="kpi-co2">—</div>
+    <span class="kbu">Suma total emisiones</span>
+  </div>
+  <div class="kpi-block">
+    <div class="kbl">CO₂ Reducido (Ton)</div>
+    <div class="kbv" id="kpi-red">—</div>
+    <span class="kbu">Suma reducción por Gas</span>
+  </div>
+  <div class="kpi-block">
+    <div class="kbl">N° Viajes (ID Servicio)</div>
+    <div class="kbv" id="kpi-vj">—</div>
+    <span class="kbu">ID Servicio distintos</span>
+  </div>
+  <div class="filter-block">
+    <label>Filtrar por Mes</label>
+    <select id="filtro-mes" onchange="applyFilter()">
+      <option value="ALL">Todos los meses</option>
+      <option value="2026-feb">2026 · Febrero</option>
+      <option value="2026-ene">2026 · Enero</option>
+      <option value="2025-dic">2025 · Diciembre</option>
+      <option value="2025-nov">2025 · Noviembre</option>
+      <option value="2025-oct">2025 · Octubre</option>
+      <option value="2025-sep">2025 · Septiembre</option>
+      <option value="2025-ago">2025 · Agosto</option>
+      <option value="2025-jul">2025 · Julio</option>
+      <option value="2025-jun">2025 · Junio</option>
+      <option value="2025-may">2025 · Mayo</option>
+      <option value="2025-abr">2025 · Abril</option>
+    </select>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="body">
+
+  <!-- Donut KM -->
+  <div class="panel">
+    <div class="ptitle">Kilómetros realizados por tipo de combustible</div>
+    <div class="donut-wrap">
+      <canvas id="donutKM" width="155" height="155" style="flex-shrink:0"></canvas>
+      <div class="donut-legend" id="legKM"></div>
+    </div>
+  </div>
+
+  <!-- Donut VH -->
+  <div class="panel">
+    <div class="ptitle">Vh por tipo de combustible</div>
+    <div class="psub">Recuento distinto de Placa</div>
+    <div class="donut-wrap">
+      <canvas id="donutVH" width="155" height="155" style="flex-shrink:0"></canvas>
+      <div class="donut-legend" id="legVH"></div>
+    </div>
+  </div>
+
+  <!-- Tabla Fijos — span 2 filas, DINÁMICA -->
+  <div class="panel no-right row-span2" style="padding:12px 11px">
+    <div class="ptitle">Vehículos Fijos por Origen</div>
+    <div class="psub" id="fijos-sub">Solo Frecuencia FIJO · Placa distinta por combustible</div>
+    <table class="ft">
+      <thead>
+        <tr>
+          <th>Origen</th>
+          <th>DIESEL</th>
+          <th>GAS</th>
+          <th>GASL.</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="tb-fijos"></tbody>
+      <tfoot><tr id="tb-fijos-foot"></tr></tfoot>
+    </table>
+  </div>
+
+  <!-- Evolución mensual -->
+  <div class="panel no-bottom">
+    <div class="ptitle">Evolución mensual H.C (Ton CO₂)</div>
+    <div class="leg">
+      <div class="li"><div class="li-dot" style="background:#1e5fad"></div>Total Emisiones / Viaje</div>
+      <div class="li"><div class="li-dot" style="background:#5aade0"></div>CO₂ Reducción</div>
+    </div>
+    <div class="cw" style="height:205px"><canvas id="chartMens"></canvas></div>
+  </div>
+
+  <!-- Tipología -->
+  <div class="panel no-right no-bottom">
+    <div class="ptitle">Emisiones CO₂ por tipología de Vehículo</div>
+    <div class="leg">
+      <div class="li"><div class="li-dot" style="background:#5aade0"></div>Viajes (ID Servicio)</div>
+      <div class="li"><div class="li-sq" style="background:#1e5fad"></div>Suma Emisiones / Viaje</div>
+    </div>
+    <div class="cw" style="height:205px"><canvas id="chartTip"></canvas></div>
+  </div>
+
+</div>
+
+<div class="foot">
+  <span>Metodología FECOC 2016 (UPME) · Factor Diésel 10.39 kg CO₂/gal · Gasolina 8.89 kg CO₂/gal · Fórmula: (Dist ÷ Rendimiento) × Factor ÷ 1,000 · Alcance 1</span>
+  <span class="valid">✔ Validado vs. FECOC / EPA</span>
+</div>
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+// ═══════════════════════════════════════════════════
+//  DATA principal — CO2/Red=SUMA · Viajes=ID Servicio distinct
+// ═══════════════════════════════════════════════════
+const DATA = {
+"2025-abr":{anio:2025,mes:"Abr",co2:138.16,red:1.87,viajes:638,km_comb:{DIESEL:159063,GAS:2473,GASOLINA:67869},vh_comb:{DIESEL:91,GAS:3,GASOLINA:36},tip:[{t:"Carry",e:25.05,v:222},{t:"NHR",e:62.52,v:270},{t:"Turbo",e:20.23,v:122},{t:"Tractomula",e:22.19,v:13},{t:"Patineta",e:2.23,v:3},{t:"Sencillo",e:5.95,v:8}]},
+"2025-may":{anio:2025,mes:"May",co2:155.04,red:2.34,viajes:844,km_comb:{DIESEL:146722,GAS:4639,GASOLINA:147793},vh_comb:{DIESEL:86,GAS:2,GASOLINA:36},tip:[{t:"Carry",e:52.40,v:375},{t:"NHR",e:63.41,v:257},{t:"Turbo",e:36.79,v:194},{t:"Tractomula",e:0.98,v:9},{t:"Patineta",e:1.41,v:4},{t:"Sencillo",e:0.05,v:5}]},
+"2025-jun":{anio:2025,mes:"Jun",co2:102.74,red:1.98,viajes:727,km_comb:{DIESEL:88874,GAS:4976,GASOLINA:117907},vh_comb:{DIESEL:69,GAS:2,GASOLINA:32},tip:[{t:"Carry",e:42.69,v:347},{t:"NHR",e:37.46,v:183},{t:"Turbo",e:22.05,v:187},{t:"Tractomula",e:0.51,v:7},{t:"Patineta",e:0,v:0},{t:"Sencillo",e:0.03,v:3}]},
+"2025-jul":{anio:2025,mes:"Jul",co2:165.04,red:2.88,viajes:888,km_comb:{DIESEL:178617,GAS:6069,GASOLINA:131475},vh_comb:{DIESEL:73,GAS:2,GASOLINA:36},tip:[{t:"Carry",e:53.59,v:489},{t:"NHR",e:86.39,v:211},{t:"Turbo",e:23.17,v:167},{t:"Tractomula",e:0.80,v:12},{t:"Patineta",e:0.18,v:2},{t:"Sencillo",e:0.91,v:7}]},
+"2025-ago":{anio:2025,mes:"Ago",co2:229.22,red:3.10,viajes:928,km_comb:{DIESEL:208784,GAS:5906,GASOLINA:246612},vh_comb:{DIESEL:104,GAS:2,GASOLINA:44},tip:[{t:"Carry",e:93.13,v:491},{t:"NHR",e:78.34,v:217},{t:"Turbo",e:50.21,v:200},{t:"Tractomula",e:6.20,v:10},{t:"Patineta",e:1.25,v:5},{t:"Sencillo",e:0.09,v:5}]},
+"2025-sep":{anio:2025,mes:"Sep",co2:168.92,red:1.67,viajes:1091,km_comb:{DIESEL:152726,GAS:2119,GASOLINA:189072},vh_comb:{DIESEL:93,GAS:2,GASOLINA:43},tip:[{t:"Carry",e:70.82,v:536},{t:"NHR",e:71.00,v:308},{t:"Turbo",e:22.43,v:219},{t:"Tractomula",e:0.56,v:11},{t:"Patineta",e:3.61,v:9},{t:"Sencillo",e:0.50,v:8}]},
+"2025-oct":{anio:2025,mes:"Oct",co2:287.34,red:4.59,viajes:1274,km_comb:{DIESEL:286591,GAS:9120,GASOLINA:238690},vh_comb:{DIESEL:133,GAS:2,GASOLINA:38},tip:[{t:"Carry",e:90.00,v:575},{t:"NHR",e:97.59,v:346},{t:"Turbo",e:68.02,v:245},{t:"Tractomula",e:11.78,v:47},{t:"Patineta",e:17.82,v:41},{t:"Sencillo",e:2.14,v:20}]},
+"2025-nov":{anio:2025,mes:"Nov",co2:188.99,red:2.59,viajes:1110,km_comb:{DIESEL:200754,GAS:3988,GASOLINA:129307},vh_comb:{DIESEL:118,GAS:2,GASOLINA:31},tip:[{t:"Carry",e:48.27,v:460},{t:"NHR",e:93.30,v:322},{t:"Turbo",e:19.78,v:177},{t:"Tractomula",e:2.73,v:37},{t:"Patineta",e:24.70,v:103},{t:"Sencillo",e:0.22,v:11}]},
+"2025-dic":{anio:2025,mes:"Dic",co2:226.75,red:4.08,viajes:1169,km_comb:{DIESEL:252370,GAS:8391,GASOLINA:151263},vh_comb:{DIESEL:107,GAS:1,GASOLINA:30},tip:[{t:"Carry",e:58.24,v:517},{t:"NHR",e:146.16,v:354},{t:"Turbo",e:8.51,v:181},{t:"Tractomula",e:1.51,v:18},{t:"Patineta",e:12.08,v:83},{t:"Sencillo",e:0.25,v:16}]},
+"2026-ene":{anio:2026,mes:"Ene",co2:91.70,red:0.98,viajes:604,km_comb:{DIESEL:93755,GAS:0,GASOLINA:75407},vh_comb:{DIESEL:57,GAS:0,GASOLINA:39},tip:[{t:"Carry",e:27.43,v:302},{t:"NHR",e:39.77,v:176},{t:"Turbo",e:20.45,v:72},{t:"Tractomula",e:0.13,v:4},{t:"Patineta",e:3.88,v:47},{t:"Sencillo",e:0.03,v:3}]},
+"2026-feb":{anio:2026,mes:"Feb",co2:69.38,red:0.79,viajes:766,km_comb:{DIESEL:73008,GAS:958,GASOLINA:54250},vh_comb:{DIESEL:58,GAS:1,GASOLINA:32},tip:[{t:"Carry",e:22.88,v:324},{t:"NHR",e:19.70,v:272},{t:"Turbo",e:19.78,v:105},{t:"Tractomula",e:0.40,v:7},{t:"Patineta",e:6.57,v:53},{t:"Sencillo",e:0.05,v:5}]}
+};
+
+const CHRONO=["2025-abr","2025-may","2025-jun","2025-jul","2025-ago","2025-sep","2025-oct","2025-nov","2025-dic","2026-ene","2026-feb"];
+
+// ═══════════════════════════════════════════════════
+//  TABLA FIJOS DINÁMICA — por mes (solo Frecuencia FIJO)
+//  Placa distinta por Origen / Tipo Combustible
+// ═══════════════════════════════════════════════════
+const FIJOS_DATA = {
+"ALL":[
+  {n:"Cota",         d:70,g:0,gs:22,tip:"NHR",  tot:92},
+  {n:"Medellín",     d:32,g:0,gs:24,tip:"Carry", tot:56},
+  {n:"Cartagena",    d:29,g:1,gs:9, tip:"NHR",  tot:39},
+  {n:"Ibagué",       d:10,g:0,gs:10,tip:"Carry", tot:20},
+  {n:"Barranquilla", d:14,g:1,gs:4, tip:"NHR",  tot:19},
+  {n:"Cali",         d:10,g:0,gs:8, tip:"Carry", tot:18},
+  {n:"Villavicencio",d:9, g:0,gs:9, tip:"Carry", tot:18},
+  {n:"Pereira",      d:8, g:0,gs:8, tip:"Carry", tot:16},
+  {n:"Manizales",    d:9, g:0,gs:7, tip:"Carry", tot:16},
+  {n:"Pasto",        d:5, g:1,gs:7, tip:"Carry", tot:13},
+  {n:"Montería",     d:8, g:0,gs:5, tip:"Carry", tot:13},
+  {n:"Santa Marta",  d:9, g:0,gs:1, tip:"NHR",  tot:10},
+  {n:"Cúcuta",       d:4, g:1,gs:3, tip:"Carry", tot:8},
+  {n:"Sincelejo",    d:4, g:0,gs:4, tip:"Carry", tot:8},
+  {n:"Armenia",      d:4, g:0,gs:3, tip:"Carry", tot:7},
+  {n:"Valledupar",   d:4, g:0,gs:1, tip:"NHR",  tot:5},
+  {n:"Tunja",        d:3, g:0,gs:2, tip:"Carry", tot:5},
+  {n:"Riohacha",     d:4, g:0,gs:1, tip:"NHR",  tot:5},
+  {n:"Bucaramanga",  d:3, g:0,gs:1, tip:"NHR",  tot:4},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Popayán",      d:1, g:1,gs:1, tip:"Carry", tot:3}
+],
+"2025-abr":[
+  {n:"Cota",         d:12,g:0,gs:8, tip:"Carry", tot:20},
+  {n:"Medellín",     d:11,g:0,gs:9, tip:"Carry", tot:20},
+  {n:"Cartagena",    d:7, g:1,gs:3, tip:"Carry", tot:11},
+  {n:"Pereira",      d:2, g:0,gs:3, tip:"Carry", tot:5},
+  {n:"Santa Marta",  d:5, g:0,gs:0, tip:"NHR",  tot:5},
+  {n:"Manizales",    d:2, g:0,gs:2, tip:"Carry", tot:4},
+  {n:"Tunja",        d:3, g:0,gs:1, tip:"Carry", tot:4},
+  {n:"Barranquilla", d:4, g:0,gs:0, tip:"Turbo", tot:4},
+  {n:"Bucaramanga",  d:3, g:0,gs:1, tip:"NHR",  tot:4},
+  {n:"Cali",         d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Armenia",      d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Riohacha",     d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Montería",     d:3, g:0,gs:0, tip:"Turbo", tot:3},
+  {n:"Villavicencio",d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Sincelejo",    d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Cúcuta",       d:1, g:0,gs:0, tip:"NHR",  tot:1},
+  {n:"Ibagué",       d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Pasto",        d:1, g:0,gs:0, tip:"Turbo", tot:1},
+  {n:"Neiva",        d:1, g:0,gs:0, tip:"NHR",  tot:1},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1},
+  {n:"Valledupar",   d:1, g:0,gs:0, tip:"NHR",  tot:1}
+],
+"2025-may":[
+  {n:"Cota",         d:20,g:0,gs:9, tip:"Carry", tot:29},
+  {n:"Medellín",     d:12,g:0,gs:7, tip:"Turbo", tot:19},
+  {n:"Cartagena",    d:6, g:1,gs:4, tip:"Carry", tot:11},
+  {n:"Pereira",      d:1, g:0,gs:5, tip:"Carry", tot:6},
+  {n:"Manizales",    d:2, g:0,gs:3, tip:"Carry", tot:5},
+  {n:"Santa Marta",  d:5, g:0,gs:0, tip:"NHR",  tot:5},
+  {n:"Villavicencio",d:2, g:0,gs:2, tip:"Carry", tot:4},
+  {n:"Ibagué",       d:2, g:0,gs:2, tip:"Carry", tot:4},
+  {n:"Barranquilla", d:4, g:0,gs:0, tip:"NHR",  tot:4},
+  {n:"Armenia",      d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Cali",         d:2, g:0,gs:1, tip:"Turbo", tot:3},
+  {n:"Montería",     d:3, g:0,gs:0, tip:"Turbo", tot:3},
+  {n:"Bucaramanga",  d:2, g:0,gs:0, tip:"NHR",  tot:2},
+  {n:"Neiva",        d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Tunja",        d:2, g:0,gs:0, tip:"NHR",  tot:2},
+  {n:"Pasto",        d:1, g:0,gs:0, tip:"Turbo", tot:1},
+  {n:"Cúcuta",       d:1, g:0,gs:0, tip:"NHR",  tot:1},
+  {n:"Riohacha",     d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1},
+  {n:"Sincelejo",    d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Valledupar",   d:1, g:0,gs:0, tip:"NHR",  tot:1}
+],
+"2025-jun":[
+  {n:"Cota",         d:17,g:0,gs:6, tip:"Carry", tot:23},
+  {n:"Medellín",     d:11,g:0,gs:5, tip:"Turbo", tot:16},
+  {n:"Cartagena",    d:5, g:1,gs:3, tip:"Carry", tot:9},
+  {n:"Pereira",      d:2, g:0,gs:4, tip:"Carry", tot:6},
+  {n:"Ibagué",       d:3, g:0,gs:2, tip:"Carry", tot:5},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Barranquilla", d:3, g:0,gs:0, tip:"Turbo", tot:3},
+  {n:"Cali",         d:2, g:0,gs:1, tip:"Turbo", tot:3},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Montería",     d:3, g:0,gs:0, tip:"Turbo", tot:3},
+  {n:"Manizales",    d:0, g:0,gs:3, tip:"Carry", tot:3},
+  {n:"Armenia",      d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Villavicencio",d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Tunja",        d:2, g:0,gs:0, tip:"NHR",  tot:2},
+  {n:"Sincelejo",    d:0, g:0,gs:2, tip:"Carry", tot:2},
+  {n:"Pasto",        d:1, g:0,gs:0, tip:"Turbo", tot:1},
+  {n:"Cúcuta",       d:1, g:0,gs:0, tip:"NHR",  tot:1},
+  {n:"Riohacha",     d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1}
+],
+"2025-jul":[
+  {n:"Cota",         d:21,g:0,gs:7, tip:"Carry", tot:28},
+  {n:"Medellín",     d:13,g:0,gs:8, tip:"Carry", tot:21},
+  {n:"Cartagena",    d:6, g:1,gs:2, tip:"NHR",  tot:9},
+  {n:"Pereira",      d:2, g:0,gs:5, tip:"Carry", tot:7},
+  {n:"Montería",     d:4, g:0,gs:2, tip:"Carry", tot:6},
+  {n:"Barranquilla", d:4, g:0,gs:0, tip:"NHR",  tot:4},
+  {n:"Ibagué",       d:2, g:0,gs:2, tip:"Carry", tot:4},
+  {n:"Villavicencio",d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Cali",         d:2, g:0,gs:1, tip:"Carry", tot:3},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Manizales",    d:0, g:0,gs:3, tip:"Carry", tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Armenia",      d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Cúcuta",       d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Pasto",        d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Sincelejo",    d:0, g:0,gs:2, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:2, g:0,gs:0, tip:"Carry", tot:2},
+  {n:"Riohacha",     d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1}
+],
+"2025-ago":[
+  {n:"Cota",         d:32,g:0,gs:11,tip:"NHR",  tot:43},
+  {n:"Medellín",     d:11,g:0,gs:9, tip:"Carry", tot:20},
+  {n:"Cartagena",    d:8, g:1,gs:3, tip:"NHR",  tot:12},
+  {n:"Ibagué",       d:3, g:0,gs:7, tip:"Carry", tot:10},
+  {n:"Pereira",      d:4, g:0,gs:5, tip:"Carry", tot:9},
+  {n:"Cali",         d:4, g:0,gs:4, tip:"Carry", tot:8},
+  {n:"Villavicencio",d:3, g:0,gs:5, tip:"Carry", tot:8},
+  {n:"Montería",     d:4, g:0,gs:3, tip:"Carry", tot:7},
+  {n:"Pasto",        d:3, g:0,gs:3, tip:"Carry", tot:6},
+  {n:"Sincelejo",    d:3, g:0,gs:3, tip:"Carry", tot:6},
+  {n:"Santa Marta",  d:5, g:0,gs:1, tip:"Turbo", tot:6},
+  {n:"Cúcuta",       d:2, g:0,gs:3, tip:"Carry", tot:5},
+  {n:"Barranquilla", d:5, g:0,gs:0, tip:"NHR",  tot:5},
+  {n:"Manizales",    d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Armenia",      d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Riohacha",     d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1}
+],
+"2025-sep":[
+  {n:"Cota",         d:19,g:0,gs:7, tip:"Carry", tot:26},
+  {n:"Medellín",     d:11,g:0,gs:8, tip:"Carry", tot:19},
+  {n:"Cartagena",    d:8, g:1,gs:4, tip:"Carry", tot:13},
+  {n:"Pereira",      d:2, g:0,gs:4, tip:"Carry", tot:6},
+  {n:"Barranquilla", d:5, g:0,gs:0, tip:"NHR",  tot:5},
+  {n:"Cali",         d:3, g:0,gs:2, tip:"Carry", tot:5},
+  {n:"Montería",     d:2, g:0,gs:2, tip:"Carry", tot:4},
+  {n:"Villavicencio",d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Manizales",    d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Ibagué",       d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Pasto",        d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Armenia",      d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Cúcuta",       d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Sincelejo",    d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Riohacha",     d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1}
+],
+"2025-oct":[
+  {n:"Cota",         d:24,g:0,gs:7, tip:"Carry", tot:31},
+  {n:"Medellín",     d:15,g:0,gs:12,tip:"Carry", tot:27},
+  {n:"Cartagena",    d:14,g:1,gs:3, tip:"NHR",  tot:18},
+  {n:"Manizales",    d:5, g:0,gs:6, tip:"Carry", tot:11},
+  {n:"Pereira",      d:5, g:0,gs:3, tip:"NHR",  tot:8},
+  {n:"Cali",         d:7, g:0,gs:1, tip:"NHR",  tot:8},
+  {n:"Barranquilla", d:6, g:1,gs:0, tip:"NHR",  tot:7},
+  {n:"Santa Marta",  d:5, g:0,gs:0, tip:"NHR",  tot:5},
+  {n:"Montería",     d:3, g:0,gs:2, tip:"Carry", tot:5},
+  {n:"Villavicencio",d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Riohacha",     d:2, g:0,gs:1, tip:"Carry", tot:3},
+  {n:"Armenia",      d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Cúcuta",       d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Ibagué",       d:0, g:0,gs:2, tip:"Carry", tot:2},
+  {n:"Sincelejo",    d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Pasto",        d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Popayán",      d:0, g:1,gs:0, tip:"Carry", tot:1}
+],
+"2025-nov":[
+  {n:"Cota",         d:22,g:0,gs:5, tip:"Turbo", tot:27},
+  {n:"Medellín",     d:10,g:0,gs:6, tip:"Carry", tot:16},
+  {n:"Cartagena",    d:5, g:1,gs:3, tip:"Carry", tot:9},
+  {n:"Cali",         d:6, g:0,gs:2, tip:"Carry", tot:8},
+  {n:"Pereira",      d:4, g:0,gs:3, tip:"Carry", tot:7},
+  {n:"Barranquilla", d:6, g:0,gs:0, tip:"NHR",  tot:6},
+  {n:"Villavicencio",d:3, g:0,gs:2, tip:"Carry", tot:5},
+  {n:"Pasto",        d:1, g:1,gs:2, tip:"Carry", tot:4},
+  {n:"Manizales",    d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Armenia",      d:2, g:0,gs:1, tip:"Carry", tot:3},
+  {n:"Montería",     d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Ibagué",       d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Cúcuta",       d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Popayán",      d:0, g:1,gs:1, tip:"Carry", tot:2},
+  {n:"Riohacha",     d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Sincelejo",    d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Tunja",        d:0, g:0,gs:1, tip:"Carry", tot:1}
+],
+"2025-dic":[
+  {n:"Cota",         d:24,g:0,gs:6, tip:"NHR",  tot:30},
+  {n:"Medellín",     d:12,g:0,gs:7, tip:"Carry", tot:19},
+  {n:"Cartagena",    d:12,g:0,gs:2, tip:"NHR",  tot:14},
+  {n:"Barranquilla", d:8, g:0,gs:1, tip:"NHR",  tot:9},
+  {n:"Cali",         d:6, g:0,gs:2, tip:"NHR",  tot:8},
+  {n:"Villavicencio",d:3, g:0,gs:3, tip:"Carry", tot:6},
+  {n:"Pereira",      d:2, g:0,gs:3, tip:"Carry", tot:5},
+  {n:"Cúcuta",       d:3, g:1,gs:1, tip:"NHR",  tot:5},
+  {n:"Pasto",        d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Manizales",    d:2, g:0,gs:2, tip:"Carry", tot:4},
+  {n:"Valledupar",   d:3, g:0,gs:1, tip:"NHR",  tot:4},
+  {n:"Montería",     d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Armenia",      d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Ibagué",       d:0, g:0,gs:2, tip:"Carry", tot:2},
+  {n:"Popayán",      d:1, g:1,gs:0, tip:"Carry", tot:2},
+  {n:"Riohacha",     d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Sincelejo",    d:1, g:0,gs:0, tip:"Carry", tot:1}
+],
+"2026-ene":[
+  {n:"Cota",         d:12,g:0,gs:8, tip:"Carry", tot:20},
+  {n:"Medellín",     d:7, g:0,gs:9, tip:"Carry", tot:16},
+  {n:"Barranquilla", d:5, g:0,gs:3, tip:"Carry", tot:8},
+  {n:"Cartagena",    d:5, g:0,gs:2, tip:"NHR",  tot:7},
+  {n:"Pasto",        d:4, g:0,gs:1, tip:"NHR",  tot:5},
+  {n:"Pereira",      d:0, g:0,gs:5, tip:"Carry", tot:5},
+  {n:"Manizales",    d:1, g:0,gs:3, tip:"Carry", tot:4},
+  {n:"Villavicencio",d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Cali",         d:2, g:0,gs:1, tip:"Carry", tot:3},
+  {n:"Montería",     d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Ibagué",       d:0, g:0,gs:3, tip:"Carry", tot:3},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Armenia",      d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Cúcuta",       d:2, g:0,gs:0, tip:"NHR",  tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Popayán",      d:1, g:0,gs:0, tip:"NHR",  tot:1},
+  {n:"Riohacha",     d:0, g:0,gs:1, tip:"Carry", tot:1},
+  {n:"Sincelejo",    d:1, g:0,gs:0, tip:"Carry", tot:1}
+],
+"2026-feb":[
+  {n:"Cota",         d:11,g:0,gs:4, tip:"Carry", tot:15},
+  {n:"Medellín",     d:6, g:0,gs:8, tip:"Carry", tot:14},
+  {n:"Cartagena",    d:4, g:1,gs:1, tip:"NHR",  tot:6},
+  {n:"Pereira",      d:2, g:0,gs:4, tip:"Carry", tot:6},
+  {n:"Barranquilla", d:5, g:0,gs:0, tip:"NHR",  tot:5},
+  {n:"Armenia",      d:3, g:0,gs:1, tip:"Carry", tot:4},
+  {n:"Cali",         d:2, g:0,gs:1, tip:"Carry", tot:3},
+  {n:"Neiva",        d:2, g:0,gs:1, tip:"NHR",  tot:3},
+  {n:"Manizales",    d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Santa Marta",  d:3, g:0,gs:0, tip:"NHR",  tot:3},
+  {n:"Ibagué",       d:0, g:0,gs:3, tip:"Carry", tot:3},
+  {n:"Villavicencio",d:1, g:0,gs:2, tip:"Carry", tot:3},
+  {n:"Cúcuta",       d:2, g:0,gs:0, tip:"NHR",  tot:2},
+  {n:"Montería",     d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Pasto",        d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Valledupar",   d:1, g:0,gs:1, tip:"Carry", tot:2},
+  {n:"Popayán",      d:1, g:0,gs:0, tip:"NHR",  tot:1},
+  {n:"Riohacha",     d:1, g:0,gs:0, tip:"Turbo", tot:1},
+  {n:"Sincelejo",    d:1, g:0,gs:0, tip:"Carry", tot:1}
+]
+};
+
+const CD={DIESEL:"#1e5fad",GASOLINA:"#5aade0",GAS:"#a8d4f5"};
+let chKM=null,chVH=null,chMens=null,chTip=null;
+
+// ── Render tabla fijos dinámica ──
+function renderFijos(key){
+  const rows = FIJOS_DATA[key] || FIJOS_DATA['ALL'];
+  const tb   = document.getElementById('tb-fijos');
+  const foot = document.getElementById('tb-fijos-foot');
+  const sub  = document.getElementById('fijos-sub');
+
+  // Subtítulo descriptivo
+  if(key==='ALL'){
+    sub.textContent = 'Solo Frecuencia FIJO · Placa distinta por combustible · Todos los meses';
+  } else {
+    const m = DATA[key];
+    sub.textContent = `Solo Frecuencia FIJO · Placa distinta · ${m.mes} ${m.anio}`;
+  }
+
+  let td=0,tg=0,tgs=0,tt=0;
+  let html='';
+  rows.forEach(r=>{
+    td+=r.d; tg+=r.g; tgs+=r.gs; tt+=r.tot;
+    html+=`<tr>
+      <td>${r.n}</td>
+      <td>${r.d||'—'}</td>
+      <td>${r.g||'—'}</td>
+      <td>${r.gs||'—'}</td>
+      <td><strong>${r.tot}</strong></td>
+    </tr>`;
+  });
+  tb.innerHTML = html;
+  foot.innerHTML = `<td>Total</td><td>${td}</td><td>${tg}</td><td>${tgs}</td><td>${tt}</td>`;
+}
+
+// ── Aggregate ALL ──
+function aggregateAll(){
+  const d={co2:0,red:0,viajes:0,km_comb:{DIESEL:0,GAS:0,GASOLINA:0},
+    vh_comb:{DIESEL:364,GAS:3,GASOLINA:91}, tip_map:{}};
+  Object.values(DATA).forEach(m=>{
+    d.co2+=m.co2; d.red+=m.red; d.viajes+=m.viajes;
+    ['DIESEL','GAS','GASOLINA'].forEach(c=>{d.km_comb[c]+=(m.km_comb[c]||0);});
+    m.tip.forEach(t=>{
+      if(!d.tip_map[t.t])d.tip_map[t.t]={e:0,v:0};
+      d.tip_map[t.t].e+=t.e; d.tip_map[t.t].v+=t.v;
+    });
+  });
+  d.tip=Object.entries(d.tip_map).map(([t,x])=>({t,e:x.e,v:x.v})).sort((a,b)=>b.v-a.v);
+  return d;
+}
+
+// ── APPLY FILTER ──
+function applyFilter(){
+  const key = document.getElementById('filtro-mes').value;
+  const d   = key==='ALL' ? aggregateAll()
+              : {...DATA[key], tip:[...DATA[key].tip].sort((a,b)=>b.v-a.v)};
+
+  // KPIs
+  document.getElementById('kpi-co2').textContent = d.co2.toFixed(2);
+  document.getElementById('kpi-red').textContent  = d.red.toFixed(2);
+  document.getElementById('kpi-vj').textContent   = d.viajes.toLocaleString('es-CO');
+
+  // Donuts
+  const kmTot = Object.values(d.km_comb).reduce((a,b)=>a+b,0);
+  const vhTot = Object.values(d.vh_comb).reduce((a,b)=>a+b,0);
+  renderDonut('donutKM','legKM',d.km_comb, v=>(v/1000).toFixed(0)+'k km', kmTot,'KM');
+  renderDonut('donutVH','legVH',d.vh_comb, v=>v.toLocaleString('es-CO')+' Vh', vhTot,'VH');
+
+  // Gráficas
+  renderMensual(key);
+  renderTip(d.tip);
+
+  // Tabla fijos dinámica
+  renderFijos(key);
+}
+
+// ── Donuts ──
+function renderDonut(canvasId,legId,combData,fmtFn,total,tag){
+  const labels=['DIESEL','GAS','GASOLINA'];
+  const vals=labels.map(l=>combData[l]||0);
+  const colors=[CD.DIESEL,CD.GAS,CD.GASOLINA];
+  if(tag==='KM'&&chKM){chKM.data.datasets[0].data=vals;chKM.update();}
+  else if(tag==='VH'&&chVH){chVH.data.datasets[0].data=vals;chVH.update();}
+  else{
+    const ch=new Chart(document.getElementById(canvasId),{
+      type:'doughnut',
+      data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},
+      options:{responsive:false,cutout:'62%',plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtFn(c.raw)} (${total>0?(c.raw/total*100).toFixed(1):0}%)`}}}}
+    });
+    if(tag==='KM')chKM=ch; else chVH=ch;
+  }
+  const leg=document.getElementById(legId);
+  leg.innerHTML='';
+  labels.forEach((l,i)=>{
+    if(!vals[i])return;
+    const pct=total>0?(vals[i]/total*100).toFixed(1):0;
+    leg.innerHTML+=`<div class="dl-row"><div class="dl-dot" style="background:${colors[i]}"></div>
+      <span class="dl-name">${l}</span>
+      <span class="dl-val">${fmtFn(vals[i])}<span class="dl-pct"> ${pct}%</span></span></div>`;
+  });
+}
+
+// ── Evolución mensual ──
+function renderMensual(activeKey){
+  const labels=CHRONO.map(k=>DATA[k].mes+(DATA[k].anio===2026?" '26":''));
+  const co2=CHRONO.map(k=>DATA[k].co2);
+  const red=CHRONO.map(k=>DATA[k].red);
+  const aIdx=activeKey==='ALL'?-1:CHRONO.indexOf(activeKey);
+  const ptC=co2.map((_,i)=>i===aIdx?'#f5a00a':CD.DIESEL);
+  const ptR=co2.map((_,i)=>i===aIdx?7:3.5);
+  if(chMens){
+    chMens.data.labels=labels;
+    chMens.data.datasets[0].data=co2;
+    chMens.data.datasets[0].pointBackgroundColor=ptC;
+    chMens.data.datasets[0].pointRadius=ptR;
+    chMens.data.datasets[1].data=red;
+    chMens.update(); return;
+  }
+  chMens=new Chart(document.getElementById('chartMens'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Emisiones',data:co2,borderColor:CD.DIESEL,backgroundColor:'rgba(30,95,173,.07)',
+        borderWidth:2,pointRadius:ptR,pointBackgroundColor:ptC,pointBorderColor:'#fff',pointBorderWidth:1.5,
+        fill:true,tension:.35,yAxisID:'y',
+        datalabels:{display:true,align:'top',anchor:'end',color:'#1e5fad',
+          font:{family:'Lato',size:9,weight:'700'},formatter:v=>v.toFixed(1),offset:3}},
+      {label:'Reducción',data:red,borderColor:CD.GASOLINA,backgroundColor:'transparent',
+        borderWidth:2,pointRadius:3.5,pointBackgroundColor:CD.GASOLINA,pointBorderColor:'#fff',pointBorderWidth:1,
+        fill:false,tension:.35,yAxisID:'y2',
+        datalabels:{display:true,align:'bottom',anchor:'start',color:'#2980c8',
+          font:{family:'Lato',size:8},formatter:v=>v.toFixed(2),offset:3}}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:26,bottom:18,left:6,right:6}},
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#fff',borderColor:'#ccd6e4',borderWidth:1,titleColor:'#1c2a3a',bodyColor:'#6b7a8f',padding:9,
+          callbacks:{label:c=>c.dataset.label==='Emisiones'?` Emisiones: ${c.raw.toFixed(2)} Ton`:` Reducción: ${c.raw.toFixed(2)} Ton`}}},
+      scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#6b7a8f',font:{size:10,family:'Lato'}}},
+        y:{display:false},y2:{display:false}}
+    }
+  });
+}
+
+// ── Tipología ──
+function renderTip(tipArr){
+  const sorted=[...tipArr].filter(t=>t.v>0).sort((a,b)=>b.v-a.v);
+  const labels=sorted.map(t=>t.t);
+  const emis=sorted.map(t=>+t.e.toFixed(2));
+  const viajes=sorted.map(t=>t.v);
+  if(chTip){
+    chTip.data.labels=labels;
+    chTip.data.datasets[0].data=emis;
+    chTip.data.datasets[1].data=viajes;
+    chTip.update(); return;
+  }
+  chTip=new Chart(document.getElementById('chartTip'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Emisiones (Ton)',data:emis,backgroundColor:CD.DIESEL,borderRadius:3,yAxisID:'y',order:2,
+        datalabels:{anchor:'center',align:'center',color:'#ffffff',
+          font:{family:'Lato',size:9,weight:'700'},formatter:v=>v.toFixed(1)}},
+      {label:'Viajes',data:viajes,type:'line',borderColor:CD.GASOLINA,backgroundColor:'transparent',
+        borderWidth:2,pointRadius:5,pointBackgroundColor:CD.GASOLINA,pointBorderColor:'#fff',pointBorderWidth:1.5,
+        fill:false,tension:.3,yAxisID:'y2',order:1,
+        datalabels:{anchor:'end',align:'top',color:'#1e5fad',
+          backgroundColor:'rgba(255,255,255,0.85)',borderRadius:3,
+          padding:{top:2,bottom:2,left:4,right:4},
+          font:{family:'Lato',size:9,weight:'700'},
+          formatter:v=>v.toLocaleString('es-CO'),offset:4}}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:32,bottom:4,left:4,right:4}},
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#fff',borderColor:'#ccd6e4',borderWidth:1,titleColor:'#1c2a3a',bodyColor:'#6b7a8f',padding:9,
+          callbacks:{label:c=>c.dataset.label==='Emisiones (Ton)'?` Emisiones: ${c.raw.toFixed(2)} Ton`:` Viajes: ${c.raw.toLocaleString('es-CO')}`}}},
+      scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#6b7a8f',font:{size:11,family:'Lato'}}},
+        y:{display:false},y2:{display:false}}
+    }
+  });
+}
+
+applyFilter();
+</script>
+</body>
+</html>
